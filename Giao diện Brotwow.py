@@ -11,7 +11,7 @@ class BrotWowapp:
         self.root.geometry("800x600")  # Set window size
    
         # Load logo image for window icon
-        self.logo = Image.open(r"C:\Users\TRAM ANH\Downloads\ẢNH BT LỚN-20250328T025055Z-001\ẢNH BT LỚN\BW logo.png")   # Đường dẫn đến tệp logo đã tải lên
+        self.logo = Image.open(r"ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN/BW logo.png")   # Đường dẫn đến tệp logo đã tải lên
         self.logo = self.logo.resize((32, 32))  # Resize logo cho phù hợp với icon
         self.logo = ImageTk.PhotoImage(self.logo)
 
