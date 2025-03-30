@@ -3,7 +3,7 @@ from tkinter import filedialog
 from tkinter import messagebox
 import customtkinter as ctk  # Import customtkinter
 from PIL import Image, ImageTk  # Cần cài thư viện Pillow nếu bạn chưa cài (pip install pillow)
-
+import subprocess
 class BrotWowapp:
     def __init__(self, root):
         self.root = root
@@ -40,13 +40,19 @@ class BrotWowapp:
                                          border_width=2, border_color="gray")
         self.exit_button.pack(pady=10)
    
+    
+
     def new_file(self):
-        """Function to launch the Paint App when 'New File' is clicked"""
-        pass
+        """Function to launch the BrotWow interactive view"""
+        try:
+            subprocess.Popen(["python3", "Brotwow.py"])
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open BrotWow Interactive View:\n{e}")
+
 
     def open_file(self):
-        """Function for 'Open File' button/menu item"""
-        pass
+        """Run Brotwow_anh.py when WOW IMAGES is clicked"""
+        subprocess.Popen(["python3", "Brotwow_anh.py"])  # Runs Brotwow_anh.py in a separate process
 
     def exit_app(self):
         """Function for 'Exit' button/menu item"""
