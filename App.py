@@ -19,7 +19,7 @@ class DrawzyApp:
 
 
         # Nhập ảnh logo vào window
-        self.icon_logo = Image.open(r"C:/Workplace/Brotwow/ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN\DRAWZY.png")
+        self.icon_logo = Image.open(r"ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN/DRAWZY.png")
         self.icon_logo = self.icon_logo.resize((32, 32))  
         self.icon_logo = ImageTk.PhotoImage(self.icon_logo)
        
@@ -75,9 +75,22 @@ class DrawzyApp:
 
 
     def open_file(self):
-        file = filedialog.askopenfilename(defaultextension=".txt", filetypes=[("Text files", ".txt"), ("All files", ".*")])
+        file = filedialog.askopenfilename(
+            defaultextension=".png",
+            filetypes=[("Image files", "*.png *.jpg *.jpeg *.bmp *.gif"), ("All files", "*.*")]
+        )
         if file:
-            print(f"File selected: {file}")
+            try:
+                image = Image.open(file)
+                print(f"Image format: {image.format}, Size: {image.size}, Mode: {image.mode}")
+                image.verify()
+                image = Image.open(file)
+                for widget in self.root.winfo_children():
+                    widget.destroy()
+                draw(self.root, background_image=image)
+                print(f"Opened image: {file}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not open image: {e}")
 
 
 
