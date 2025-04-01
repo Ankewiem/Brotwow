@@ -8,9 +8,14 @@ import os
 from PIL import ImageGrab
 
 
+# Dictionary to store the original line width of each canvas item
+original_widths = {}
+# Track the cumulative scale factor for the entire canvas
+cumulative_scale = 1.0
+# List to store drawn objects
+drawn_objects = deque(maxlen=100)
 
-
-def draw(root):
+def draw(root, background_image=None):
     # Global declarations for variables used across functions
     global start_x, start_y, last_x, last_y, shape_start_x, shape_start_y, current_shape
     global circle_start_x, circle_start_y, current_circle, drawn_objects, current_color, current_width
@@ -63,7 +68,28 @@ def draw(root):
 
 
 
-
+    if background_image:
+        try:
+            # Resize the image to fit the canvas (optional)
+            canvas_width = canvas.winfo_reqwidth()
+            canvas_height = canvas.winfo_reqheight()
+            background_image = background_image.resize((canvas_width, canvas_height), Image.Resampling.LANCZOS)
+            # Convert the image to a PhotoImage for Tkinter
+            photo = ImageTk.PhotoImage(background_image)
+            # Add the image to the canvas at the center
+            image_id = canvas.create_image(canvas_width // 2, canvas_height // 2, image=photo, anchor="center")
+            # Keep a reference to the PhotoImage to prevent garbage collection
+            canvas.image = photo  # Store the reference in the canvas object
+            # Add the image to drawn_objects
+            drawn_objects.append({
+                'type': 'image',
+                'id': image_id,
+                'photo': photo
+            })
+        except Exception as e:
+            print(f"Error displaying background image: {e}")
+            # Optionally, show an error message to the user
+            tk.messagebox.showerror("Error", f"Could not display image: {e}")
 
 
 
@@ -423,28 +449,13 @@ def draw(root):
         last_x, last_y = event.x, event.y
     # Hàm erase cập nhật
     def erase(event):
-        """Xóa tại điểm click chuột với kích thước bằng độ rộng hiện tại"""
         if drawing_mode == "eraser":
-            # Tạo một hình tròn nhỏ tại vị trí click để xóa
             x, y = event.x, event.y
             erase_size = current_width * 2  # Kích thước tẩy
-       
-            # Tạo hình oval trắng để "xóa" (thực chất là vẽ đè màu trắng)
-            canvas.create_oval(x-erase_size, y-erase_size,
-                            x+erase_size, y+erase_size,
-                            fill="white", outline="white")
-       
-            # Cập nhật lại danh sách đối tượng (nếu cần)
-            # Bạn có thể bỏ qua phần này nếu không cần undo cho thao tác xóa
-            erase_id = canvas.create_oval(x-erase_size, y-erase_size,
-                                        x+erase_size, y+erase_size,
-                                        fill="white", outline="white")
-            drawn_objects.append({
-                'type': 'erase',
-                'id': erase_id,
-                'coords': [x-erase_size, y-erase_size, x+erase_size, y+erase_size],
-                'color': 'white'
-            })
+
+            # Xóa bằng cách vẽ màu nền (giả lập tẩy)
+            canvas.create_line(x-erase_size, y-erase_size, x+erase_size, y+erase_size,
+                            fill="white", width=current_width*2, capstyle=tk.ROUND)
     def reset_position(event):
         """Đặt lại vị trí sau khi nhả chuột"""
         global last_x, last_y
@@ -784,28 +795,43 @@ def draw(root):
 
 
     def save_canvas():
-        """Lưu nội dung Canvas dưới dạng file hình ảnh."""
+        """Lưu nội dung Canvas dưới dạng file hình ảnh, bao gồm toàn bộ nội dung (kể cả phần không hiển thị)."""
         file_path = filedialog.asksaveasfilename(defaultextension=".png",
                                                 filetypes=[("PNG files", "*.png"),
-                                                            ("All Files", ".")])
-        if file_path:
-            # Lấy kích thước của Canvas
-            x = root.winfo_rootx() + canvas.winfo_x()
-            y = root.winfo_rooty() + canvas.winfo_y()
-            width = canvas.winfo_width()
-            height = canvas.winfo_height()
+                                                            ("All Files", "*.*")])
+        if not file_path:
+            return  # User canceled the save dialog
 
+        try:
+            # Ensure the canvas is fully updated before capturing
+            root.update()
 
+            # Method 2: Capture the entire canvas content using PostScript
+            # Get the bounding box of all items on the canvas (including scrolled/zoomed areas)
+            bbox = canvas.bbox("all")
+            if not bbox:
+                print("Canvas trống, không có gì để lưu.")
+                return
 
+            x1, y1, x2, y2 = bbox
+            width = x2 - x1
+            height = y2 - y1
 
+            # Export the canvas as a PostScript file
+            ps_file = "temp_canvas.ps"
+            canvas.postscript(file=ps_file, colormode="color", x=x1, y=y1, width=width, height=height)
 
+            # Convert the PostScript file to an image using Pillow
+            img = Image.open(ps_file)
+            img.save(file_path, "PNG")
 
+            # Clean up the temporary PostScript file
+            os.remove(ps_file)
 
-
-            # Chụp ảnh màn hình khu vực canvas
-            image = ImageGrab.grab(bbox=(x, y, x + width, y + height))
-            image.save(file_path)
             print("Đã lưu hình ảnh tại:", file_path)
+
+        except Exception as e:
+            print(f"Lỗi khi lưu hình ảnh: {e}")
 
 
 
@@ -828,25 +854,100 @@ def draw(root):
 
 
 
+
+    def scale_canvas(scale_factor, center_x=None, center_y=None):
+        """
+        Scale the entire canvas content (all objects) relative to a center point.
+        Args:
+            scale_factor (float): Factor to scale by (e.g., 1.2 for zoom-in, 0.8 for zoom-out).
+            center_x (float, optional): X-coordinate of the scaling center. Defaults to canvas center.
+            center_y (float, optional): Y-coordinate of the scaling center. Defaults to canvas center.
+        """
+        global cumulative_scale
+
+        # Update the cumulative scale factor
+        cumulative_scale *= scale_factor
+
+        # Get canvas dimensions to determine the default center
+        canvas_width = canvas.winfo_width()
+        canvas_height = canvas.winfo_height()
+        
+        # Use the canvas center as the default scaling point if not specified
+        if center_x is None:
+            center_x = canvas_width / 2
+        if center_y is None:
+            center_y = canvas_height / 2
+
+        try:
+            # Scale all objects on the canvas relative to the center point
+            canvas.scale("all", center_x, center_y, scale_factor, scale_factor)
+
+            # Update line widths for all objects based on their original widths
+            for item in canvas.find_all():
+                try:
+                    # Store the original width the first time we see the item
+                    if item not in original_widths:
+                        current_width = canvas.itemcget(item, "width")
+                        if current_width:  # Ensure the item has a width property
+                            original_widths[item] = float(current_width)
+                        else:
+                            continue  # Skip items without a width (e.g., text)
+
+                    # Calculate the new width based on the original width and cumulative scale
+                    original_width = original_widths[item]
+                    new_width = max(1, int(original_width * cumulative_scale))
+                    canvas.itemconfig(item, width=new_width)
+
+                except tk.TclError:
+                    continue  # Skip items that don’t support width or have been deleted
+
+            # Update the scroll region to ensure all objects remain visible
+            bbox = canvas.bbox("all")
+            if bbox:
+                canvas.configure(scrollregion=bbox)
+
+        except tk.TclError as e:
+            print(f"Error scaling canvas: {e}")
+
+    # Zoom-in button
     btn_zoom_in = tk.Button(toolbar, text="🔍+", font=("Arial", 14), bg="#DCEAF9", bd=0,
-                            command=lambda: scale_objects(1.2))  # Phóng to 20%
+                            command=lambda: scale_canvas(1.2))
     btn_zoom_in.grid(row=0, column=10, padx=10, pady=5)
 
-
-
-
-
-
-
-
+    # Zoom-out button
     btn_zoom_out = tk.Button(toolbar, text="🔍-", font=("Arial", 14), bg="#DCEAF9", bd=0,
-                            command=lambda: scale_objects(0.8))  # Thu nhỏ 20%
+                            command=lambda: scale_canvas(0.8))
     btn_zoom_out.grid(row=0, column=11, padx=10, pady=5)
 
 
 
 
+    def clear_canvas():
+        """Xóa toàn bộ nội dung trên Canvas và reset về trạng thái ban đầu."""
+        global cumulative_scale, drawn_objects, original_widths
 
+        # Delete all objects on the canvas
+        canvas.delete("all")
+
+        # Clear the drawn_objects list
+        drawn_objects.clear()
+
+        # Reset the zoom scale and original widths
+        cumulative_scale = 1.0
+        original_widths.clear()
+
+        # Reset the scroll region to the default (optional: set to canvas size)
+        canvas.configure(scrollregion=(0, 0, canvas.winfo_width(), canvas.winfo_height()))
+
+        # Optionally, reset the canvas background to white (in case it was changed)
+        canvas.configure(bg="white")
+
+        print("Đã xóa toàn bộ nội dung trên Canvas.")
+
+    # New "Clear Canvas" button
+    btn_clear = tk.Button(toolbar, text="🗑️ Clear", font=("Arial", 14), bg="#DCEAF9", bd=0,
+                        command=clear_canvas)
+    btn_clear.grid(row=0, column=13, padx=10, pady=5)
 
 
 
