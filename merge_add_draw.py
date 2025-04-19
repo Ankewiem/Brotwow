@@ -160,7 +160,7 @@ class DrawzyApp:
                 session.mount("https://", HTTPAdapter(max_retries=retries))
 
                 # Stable Diffusion API (ModelsLab)
-                api_key = "Fol9YEZ2txUpyUupPJnhWJL3vD218w6eO52fUutDlVGRAQ9KMfyHeZCxqB6C"  # Replace with your ModelsLab API key
+                api_key = "xqiXmn1kiO2DukggaUPjrSpu6u2FQ4FSPuQZ7LzW0RCpP6ozIH3FcpEwLTCg"  # Replace with your ModelsLab API key
                 url = "https://modelslab.com/api/v6/realtime/text2img"
                 print(f"Requesting URL: {url} with prompt: {prompt}")
                 response = session.post(url, json={
