@@ -3,8 +3,12 @@ from tkinter import Canvas, simpledialog, filedialog, colorchooser, messagebox
 from collections import deque
 from PIL import Image, ImageTk, ImageDraw, ImageGrab
 import os
+import io
 import customtkinter as ctk
-
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import time
 class DrawzyApp:
     def __init__(self, root):
         self.root = root
@@ -114,6 +118,7 @@ class DrawzyApp:
             ("🎨", "circle", self.choose_color),
             ("🔍+", "plus", lambda: self.scale_canvas(1.2)),
             ("🔍-", "arrow", lambda: self.scale_canvas(0.8)),
+            ("🖼️", "arrow", self.generate_image_from_text),
             ("🗑️ Clear", "arrow", self.clear_canvas)
         ]
         for i, (icon, cursor_type, command) in enumerate(icons):
@@ -126,7 +131,90 @@ class DrawzyApp:
                                      label="Độ rộng", command=self.set_width)
         self.width_slider.set(self.current_width)
         self.width_slider.grid(row=0, column=len(icons), padx=5)
+    def generate_image_from_text(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Generate Image from Text")
+        dialog.geometry("400x300")
 
+        tk.Label(dialog, text="Enter your text prompt:").pack(pady=5)
+        prompt_entry = tk.Entry(dialog, width=40)
+        prompt_entry.insert(0, "A colorful bird flying over a forest")
+        prompt_entry.pack(pady=5)
+
+        tk.Label(dialog, text="Select style:").pack(pady=5)
+        style_var = tk.StringVar(value="default")  # Stable Diffusion doesn't use styles in this endpoint
+        styles = ["default"]  # No style selection for this endpoint
+        style_menu = tk.OptionMenu(dialog, style_var, *styles)
+        style_menu.pack(pady=5)
+
+        def generate_and_display():
+            prompt = prompt_entry.get()
+            if not prompt:
+                tk.messagebox.showerror("Error", "Please enter a text prompt.")
+                return
+
+            try:
+                # Set up retries
+                session = requests.Session()
+                retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+                session.mount("https://", HTTPAdapter(max_retries=retries))
+
+                # Stable Diffusion API (ModelsLab)
+                api_key = "Fol9YEZ2txUpyUupPJnhWJL3vD218w6eO52fUutDlVGRAQ9KMfyHeZCxqB6C"  # Replace with your ModelsLab API key
+                url = "https://modelslab.com/api/v6/realtime/text2img"
+                print(f"Requesting URL: {url} with prompt: {prompt}")
+                response = session.post(url, json={
+                    "key": api_key,
+                    "prompt": prompt,
+                    "negative_prompt": "bad quality",
+                    "width": "512",
+                    "height": "512",
+                    "safety_checker": False,
+                    "seed": None,
+                    "samples": 1,
+                    "base64": False,
+                    "webhook": None,
+                    "track_id": None
+                }, headers={
+                    "Content-Type": "application/json"
+                }, timeout=30)
+                response.raise_for_status()
+                result = response.json()
+
+                if "output" not in result or not result["output"]:
+                    tk.messagebox.showerror("Error", "Failed to generate image. Try a different prompt.")
+                    return
+
+                image_url = result["output"][0]
+                print(f"Generated image URL: {image_url}")
+                image_response = requests.get(image_url, timeout=30)
+                image_response.raise_for_status()
+
+                image_data = image_response.content
+                image = Image.open(io.BytesIO(image_data))
+                image = image.resize((self.canvas.winfo_width(), self.canvas.winfo_height()), Image.LANCZOS)
+                photo = ImageTk.PhotoImage(image)
+
+                self.canvas.create_image(0, 0, anchor="nw", image=photo)
+                self.canvas.image = photo
+
+                self.drawn_objects.append({
+                    "type": "image",
+                    "id": None,
+                    "image": photo,
+                    "coords": [0, 0]
+                })
+
+                dialog.destroy()
+
+            except requests.exceptions.RequestException as e:
+                tk.messagebox.showerror("Error", f"Failed to generate image: {str(e)}")
+
+        tk.Button(dialog, text="Generate Image", command=generate_and_display).pack(pady=20)
+
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.wait_window()
     def change_cursor(self, cursor_type):
         self.root.config(cursor=cursor_type)
 
