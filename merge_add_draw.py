@@ -9,6 +9,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import time
+import base64
 class DrawzyApp:
     def __init__(self, root):
         self.root = root
@@ -118,6 +119,7 @@ class DrawzyApp:
             ("🎨", "circle", self.choose_color),
             ("🔍+", "plus", lambda: self.scale_canvas(1.2)),
             ("🔍-", "arrow", lambda: self.scale_canvas(0.8)),
+            ("??", "arrow", self.edit_image_with_text),
             ("🖼️", "arrow", self.generate_image_from_text),
             ("🗑️ Clear", "arrow", self.clear_canvas)
         ]
@@ -131,6 +133,142 @@ class DrawzyApp:
                                      label="Độ rộng", command=self.set_width)
         self.width_slider.set(self.current_width)
         self.width_slider.grid(row=0, column=len(icons), padx=5)
+    def edit_image_with_text(self):
+        # Check if there's an image on the canvas
+        if not hasattr(self.canvas, 'image') or self.canvas.image is None:
+            messagebox.showerror("Error", "No image on the canvas to edit. Please generate an image first.")
+            return
+
+        # Create a dialog window for text input
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Edit Image with Text")
+        dialog.geometry("400x200")
+
+        tk.Label(dialog, text="Enter your edit prompt (e.g., 'Add a rainbow to the sky'):").pack(pady=5)
+        prompt_entry = tk.Entry(dialog, width=40)
+        prompt_entry.pack(pady=5)
+
+        def edit_and_display():
+            prompt = prompt_entry.get()
+            if not prompt:
+                messagebox.showerror("Error", "Please enter an edit prompt.")
+                return
+
+            try:
+                # Set up retries
+                session = requests.Session()
+                retries = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+                session.mount("https://", HTTPAdapter(max_retries=retries))
+
+                # Get the current image from the canvas
+                image = self.canvas.image  # This is the PhotoImage object
+                if not image:
+                    messagebox.showerror("Error", "No image on the canvas to edit.")
+                    return
+
+                # Convert PhotoImage to PIL Image
+                pil_image = ImageTk.getimage(image)
+
+                # Convert the image to a byte stream and encode as base64
+                buffered = io.BytesIO()
+                pil_image.save(buffered, format="PNG")
+                image_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+                # Create a mask image: white in the upper part (sky area), black elsewhere
+                mask_image = Image.new("L", (pil_image.width, pil_image.height), 0)  # Black image (0 = black)
+                draw = ImageDraw.Draw(mask_image)
+                # Draw a white rectangle in the upper 30% of the image (where the sky might be)
+                sky_height = int(pil_image.height * 0.3)  # Top 30% of the image
+                draw.rectangle([0, 0, pil_image.width, sky_height], fill=255)  # White (255 = white)
+
+                # Convert the mask image to base64
+                mask_buffered = io.BytesIO()
+                mask_image.save(mask_buffered, format="PNG")
+                mask_base64 = base64.b64encode(mask_buffered.getvalue()).decode("utf-8")
+
+                # ModelsLab API for image editing (inpaint endpoint)
+                api_key = "xqiXmn1kiO2DukggaUPjrSpu6u2FQ4FSPuQZ7LzW0RCpP6ozIH3FcpEwLTCg"
+                url = "https://modelslab.com/api/v6/image_editing/inpaint"
+                print(f"Requesting URL: {url} with prompt: {prompt}")
+                response = session.post(url, json={
+                    "key": api_key,
+                    "prompt": prompt,
+                    "negative_prompt": "bad quality",
+                    "init_image": image_base64,
+                    "mask_image": mask_base64,
+                    "width": "512",
+                    "height": "512",
+                    "samples": 1,
+                    "safety_checker": "yes",
+                    "safety_checker_type": "black",
+                    "seed": 3924366934,
+                    "base64": True,
+                    "webhook": None,
+                    "track_id": None
+                }, headers={
+                    "Content-Type": "application/json"
+                }, timeout=30)
+                response.raise_for_status()
+                result = response.json()
+                print(result)
+                print(result.keys())
+                if "output" not in result or not result["output"]:
+                    messagebox.showerror("Error", "Failed to edit image. Try a different prompt.")
+                    return
+
+                # Get the edited image URL
+                image_url = result["output"][0]
+                print(f"Edited image URL: {image_url}")
+                image_response = requests.get(image_url, timeout=30)
+                image_response.raise_for_status()
+
+                # Inspect the content of the response
+                image_data = image_response.content
+                print(f"Image data (first 100 bytes): {image_data[:100]}")  # Debug the raw data
+
+                # Check if the data is a base64-encoded string (due to the .base64 extension in the URL)
+                try:
+                    # Try to decode as base64
+                    decoded_data = base64.b64decode(image_data)
+                    print("Successfully decoded as base64")
+                    image_data = decoded_data  # Use the decoded data
+                except base64.binascii.Error:
+                    print("Data is not base64-encoded; treating as raw image data")
+
+                # Load the image into PIL
+                try:
+                    edited_image = Image.open(io.BytesIO(image_data))
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to load image: {str(e)}")
+                    return
+
+                # Resize and display the edited image
+                edited_image = edited_image.resize((self.canvas.winfo_width(), self.canvas.winfo_height()), Image.LANCZOS)
+                photo = ImageTk.PhotoImage(edited_image)
+
+                # Display the edited image on the canvas
+                self.canvas.create_image(0, 0, anchor="nw", image=photo)
+                self.canvas.image = photo  # Update the reference
+
+                # Update drawn_objects for undo support
+                self.drawn_objects.append({
+                    "type": "image",
+                    "id": None,
+                    "image": photo,
+                    "coords": [0, 0]
+                })
+
+                # Close the dialog
+                dialog.destroy()
+
+            except requests.exceptions.RequestException as e:
+                messagebox.showerror("Error", f"Failed to edit image: {str(e)}")
+
+        tk.Button(dialog, text="Edit Image", command=edit_and_display).pack(pady=20)
+
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.wait_window()
     def generate_image_from_text(self):
         dialog = tk.Toplevel(self.root)
         dialog.title("Generate Image from Text")
@@ -211,7 +349,7 @@ class DrawzyApp:
                 tk.messagebox.showerror("Error", f"Failed to generate image: {str(e)}")
 
         tk.Button(dialog, text="Generate Image", command=generate_and_display).pack(pady=20)
-
+        
         dialog.transient(self.root)
         dialog.grab_set()
         dialog.wait_window()
