@@ -18,7 +18,7 @@ class BrotWowapp:
         self.root.geometry("800x600")  # Kích thước cửa sổ
        
         # Tải hình ảnh logo để làm biểu tượng cửa sổ
-        self.logo = Image.open(r"ẢNH BT LỚN-20250328T025055Z-001\ẢNH BT LỚN\BW logo.png")
+        self.logo = Image.open(r"ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN/BW logo.png")
         self.logo = self.logo.resize((32, 32))  # Thay đổi kích thước logo
         self.logo = ImageTk.PhotoImage(self.logo)  # Chuyển đổi sang định dạng Tkinter
 
@@ -109,17 +109,17 @@ class WowImagesApp:
         self.current_photo = None  # Ảnh hiện tại đang hiển thị
        
         # Đặt biểu tượng cửa sổ
-        self.set_window_icon(r"C:\Users\HP\Downloads\ĐỒ HỌA MÁY TÍNH\BW logo.png")
+        self.set_window_icon(r"ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN/BW logo.png")
        
         # Danh sách các hình ảnh với thông tin mô tả
         self.images = [
-            {"title": "FLOWER", "desc": " This area consists of several smaller bulbs around the main cardioid, forming petal-like structures. These symmetric patterns resemble a flower and showcase the fractal's repetitive, cyclical nature.", "path": r"C:\Users\HP\Downloads\ĐỒ HỌA MÁY TÍNH\FLOWER.png"},
-            {"title": "JULIA ISLAND", "desc": "Refers to regions where the fractal resembles isolated clusters, similar to islands. These areas are connected to Julia sets and exhibit intricate and disconnected patterns when zoomed in.", "path": r"C:\Users\HP\Downloads\ĐỒ HỌA MÁY TÍNH\JULIA ISLAND.png"},
-            {"title": "SEAHORSE VALLEY", "desc": "Known for its detailed, spiral-like structures resembling seahorses. It's located near the main cardioid and displays intricate, branching patterns that become more complex with zooming.", "path": r"C:\Users\HP\Downloads\ĐỒ HỌA MÁY TÍNH\SEAHORSE VALLEY.png"},
-            {"title": "STARFISH", "desc": "A region where radial symmetry emerges, with arms extending outward from a central core. These arms appear similar to the limbs of a starfish and show how fractals exhibit radiating patterns.", "path": r"C:\Users\HP\Downloads\ĐỒ HỌA MÁY TÍNH\STARFISH.png"},
-            {"title": "SUN", "desc": "Characterized by patterns that resemble sun rays, this area displays radial structures with bursts or rays emanating from a center, reflecting the fractal's infinite complexity.", "path": r"C:\Users\HP\Downloads\ĐỒ HỌA MÁY TÍNH\SUN.png"},
-            {"title": "TENDRILS", "desc": "Long, winding, thread-like branches that appear as you zoom into the Mandelbrot Set. These delicate, fine structures are an example of the set's recursive, fractal nature.", "path": r"C:\Users\HP\Downloads\ĐỒ HỌA MÁY TÍNH\TENDRILS.png"},
-            {"title": "TREE", "desc": "This region shows branching structures that resemble the trunk and branches of a tree. As you zoom in, these branches subdivide further, demonstrating the fractal's self-similarity.", "path": r"C:\Users\HP\Downloads\ĐỒ HỌA MÁY TÍNH\TREE.png"}
+            {"title": "FLOWER", "desc": " This area consists of several smaller bulbs around the main cardioid, forming petal-like structures. These symmetric patterns resemble a flower and showcase the fractal's repetitive, cyclical nature.", "path": r"ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN/FLOWER.png"},
+            {"title": "JULIA ISLAND", "desc": "Refers to regions where the fractal resembles isolated clusters, similar to islands. These areas are connected to Julia sets and exhibit intricate and disconnected patterns when zoomed in.", "path": r"ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN/JULIA ISLAND.png"},
+            {"title": "SEAHORSE VALLEY", "desc": "Known for its detailed, spiral-like structures resembling seahorses. It's located near the main cardioid and displays intricate, branching patterns that become more complex with zooming.", "path": r"ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN/SEAHORSE VALLEY.png"},
+            {"title": "STARFISH", "desc": "A region where radial symmetry emerges, with arms extending outward from a central core. These arms appear similar to the limbs of a starfish and show how fractals exhibit radiating patterns.", "path": r"ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN/STARFISH.png"},
+            {"title": "SUN", "desc": "Characterized by patterns that resemble sun rays, this area displays radial structures with bursts or rays emanating from a center, reflecting the fractal's infinite complexity.", "path": r"ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN/SUN.png"},
+            {"title": "TENDRILS", "desc": "Long, winding, thread-like branches that appear as you zoom into the Mandelbrot Set. These delicate, fine structures are an example of the set's recursive, fractal nature.", "path": r"ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN/TENDRILS.png"},
+            {"title": "TREE", "desc": "This region shows branching structures that resemble the trunk and branches of a tree. As you zoom in, these branches subdivide further, demonstrating the fractal's self-similarity.", "path": r"ẢNH BT LỚN-20250328T025055Z-001/ẢNH BT LỚN/TREE.png"}
         ]
        
         self.current_index = 0  # Chỉ số hình ảnh hiện tại
